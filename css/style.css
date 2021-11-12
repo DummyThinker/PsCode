@@ -7,8 +7,13 @@ html, body {
     tab-size: 6;
 }
 
+#CodeInput::selection {
+  background: yellow;
+}
+
 #Panel {
 	height:40px;
+	display:inline;
 }
 
 #Panel button {
@@ -17,11 +22,27 @@ html, body {
 }
 
 #CodeBox {
+	z-index:1;
 	position:relative;
 	width:100%;
 	height:calc( 100% - 40px);	
 	overflow-y:scroll;
 	overflow-x:hidden;
+}
+
+#RunBox {
+	z-index:2;
+	background:black;
+	width:100px;
+	height:100px;
+	position:absolute;
+	top:32px;
+	left:1px;
+	width:100%;
+	height:calc(100% - 50px);
+	font-family:Consolas;
+	font-size:12px;	
+	color:white;
 }
 
 #CodeInput, #CodeBeauty {
