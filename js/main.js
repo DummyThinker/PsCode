@@ -25,7 +25,7 @@ document.getElementById('CodeInput').addEventListener('keydown', function(e) {
   }
 });
 
-const keywords = ["read", "do&nbsp;for", "if", "while", "do", "write", "until"];
+const keywords = ["endif", "enddo", "endwhile", "read", "do&nbsp;for", "else", "if", "while", "do", "write", "until"];
 
 function beautify() {
 	var res=""
@@ -68,25 +68,42 @@ function beautify() {
 					line+=`<span style="color:magenta;">${token}</span>`;
 				}
 			} else {
-				for(var i in keywords){
+				for(var i in keywords){					
 					token=token.replaceAll("&nbsp;"+keywords[i]+"&nbsp;",`&nbsp;<span style="color:blue">${keywords[i]}</span>&nbsp`);
-					token=token.replaceAll("&nbsp;"+keywords[i]+"(",`&nbsp;<span style="color:blue">${keywords[i]}</span>(`);
+					token=token.replaceAll("&nbsp;"+keywords[i]+"(",`&nbsp;<span style="color:blue">${keywords[i]}</span>(`);					
+					try {						
+						if (token.substr(token.length-keywords[i].length)==keywords[i]) {
+							var before=token.substr(0,token.length-keywords[i].length);
+							if ((before=="" || !isAlphaNumeric(before[before.length-1]))) {
+								token=token.substr(0,token.length-keywords[i].length)+`<span style="color:blue">${keywords[i]}</span>`;
+							}
+						}
+					}
+					catch(error) {}
 				}
 				line+=token
 			}							
 		}		
 				
 		res+=line+"<br/>";			
-	}	
-	//var strings=str.match(/( |\\\".*?\\\"|'.*?')/)
-	//for(i in strings) {
-		//console.log(strings[i]);
-	//}	
+	}		
 	
 	result.innerHTML = res;
 }
 
+function isAlphaNumeric(str) {
+  var code, i, len;
 
+  for (i = 0, len = str.length; i < len; i++) {
+    code = str.charCodeAt(i);
+    if (!(code > 47 && code < 58) && // numeric (0-9)
+        !(code > 64 && code < 91) && // upper alpha (A-Z)
+        !(code > 96 && code < 123)) { // lower alpha (a-z)
+      return false;
+    }
+  }
+  return true;
+};
 
 
 source.value=`{\n    read n\n    write n\n}`;
