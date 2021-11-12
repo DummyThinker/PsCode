@@ -1,0 +1,51 @@
+html, body {
+	margin: 0;
+	padding: 1;
+	overflow:hidden;
+	-moz-tab-size: 6;                   
+    -o-tab-size: 6;
+    tab-size: 6;
+}
+
+#Panel {
+	height:40px;
+}
+
+#Panel button {
+	height:20px;
+	margin-top:10px;
+}
+
+#CodeBox {
+	position:relative;
+	width:100%;
+	height:calc( 100% - 40px);	
+	overflow-y:scroll;
+	overflow-x:hidden;
+}
+
+#CodeInput, #CodeBeauty {
+	margin: 0;	
+	padding:0;
+	width:calc( 100% - 1px );
+	height:100%;
+	position:absolute;
+	top:0;
+	left:0;
+	font-family:Consolas;
+	font-size:12px;	
+}
+
+#CodeInput {	
+	height:2000px;
+	overflow:hidden;	
+	border:0;
+	outline: none !important;
+}
+
+#CodeBeauty{
+	height:2000px;
+	overflow:visible;
+	pointer-events:none;
+	background:#c0c0c033;
+}
