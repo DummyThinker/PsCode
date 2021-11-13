@@ -31,25 +31,21 @@
 		function run(e){					
 			if(!debugging) {	
 				consoleClear();
-				cb=new CodeBuilder(document.getElementById("CodeInput").value);
-				cb.execute();
+				cb=new CodeBuilder(document.getElementById("CodeInput").value);								
 				if(cb.error!==undefined) {
 					consoleWriteError(cb.error);
-				}
+				}								
 				else {
-					try {					
-						eval("( async "+cb.js+")()");
-					}
-					catch(e) {
-						consoleWriteError(e);
-					}
+					cb.execute();
 				}
 				debugging=true;
 				document.getElementById("RunBox").style.display="block";								
 				e.innerHTML="Stop";
 			}
-			else {				
-				cb.stop();
+			else {			
+				if(cb.stop!==undefined){
+					cb.stop();
+				}
 				document.getElementById("RunBox").style.display="none";
 				e.innerHTML="Run";				
 				debugging=false;

@@ -37,8 +37,7 @@ function CodeBuilder(psc_src){
 		}
 		if(token!="") tokens.push(token);
 		
-		nosptk = [];
-		
+		nosptk = [];					
 		for(var i in tokens) {
 			var token=tokens[i]
 			if(token[0]=='"') {
@@ -89,7 +88,7 @@ function CodeBuilder(psc_src){
 		//console.log(nosptk);
 		for(var x in nosptk) {
 			var tk=nosptk[x];
-			if(x<nosptk.length-1 && tk=="}") {				
+			if(x<nosptk.length-1 && tk=="}") {								
 				this.error=genErr(l,"Expected new line after '}'.");
 				return;
 			}
@@ -106,68 +105,76 @@ function CodeBuilder(psc_src){
 		
 		finals.push.apply(finals,nosptk);
 		finals.push("");
+	}		
+	
+	this.symbols={};
+	for(var i in finals) {
+		if(!keywords.includes(finals[i]) && !("{}()%+-/*=<>!,".includes(finals[i])) &&
+				finals[i]!="for" && !isNumeric(finals[i]) && !["||","==","!=","<=",">=","&&"].includes(finals[i]) && finals[i][0]!='"') {			
+			this.symbols[finals[i]]=0;
+			finals[i]=`$__sym["${finals[i]}"]`;
+		}
 	}	
 	
 	this.finals=finals;	
 		
 	console.log(this.finals);
 	
-	this.tree=new InstructionTree();
-		
-	var node = this.tree;
+	this.processed = [];
+			
 	var symbols = [];
 	var i=0;
 	while(i<finals.length){			
 		var token=finals[i];
 		
-		if(token=="{") {						
+		if(token=="{") {
+			this.processed.push("{");
 			i++;
 			continue;
 		}		
-		else if(token=="}") {
-			node = node.parent;
+		else if(token=="}") {					
+			this.processed.push("}");
 			i++;
 			continue;
 		}
-		else if(token=="read") {
-			node = new InstructionTree(node);
-			node.name="read";
+		else if(token=="read") {		
+			this.processed.push("read")
 			i++;			
 			if(i<finals.length) {
-				node.args.push(finals[i]);					
+				var lst=[finals[i]]								
 				i++;				
-				while(i<finals.length && finals[i]==',') {					
-					node.args.push(finals[i+1]);					
+				while(i<finals.length && finals[i]==',') {										
+					lst.push(finals[i+1])
 					i+=2;
 				}				
-				node=node.parent;
+				this.processed.push(lst)				
 				continue;
 			}			
 		}
-		else if(token=="write") {
-			node = new InstructionTree(node);
-			node.name="write";
+		else if(token=="write") {			
+			this.processed.push("write")
 			i++;			
-			if(i<finals.length) {				
-				node.args.push(finals[i]);
+			if(i<finals.length) {	
+				var lst=[]
+				lst.push(finals[i])				
 				i++;				
-				while(i<finals.length && finals[i]==',') {					
-					node.args.push(finals[i+1]);
+				while(i<finals.length && finals[i]==',') {										
+					lst.push(finals[i+1])
 					i+=2;
-				}			
-				node=node.parent;
+				}						
+				this.processed.push(lst);
 				continue;
 			}			
 		}
-		else if(token=="if" || token=="while") {
-			node = new InstructionTree(node);
-			node.name=token;
-			node.condition="";			
+		else if(token=="if" || token=="while") {			
+			this.processed.push(token);
+			var condition=""			
 			i++;			
-			while(i<finals.length && finals[i]!="do" && finals[i]!="then" && finals[i]!="") {
-				node.condition+=finals[i];
+			while(i<finals.length && finals[i]!="do" && finals[i]!="then" && finals[i]!="" && finals[i]!="{") {
+				condition+=finals[i];				
 				i++;
 			}			
+			this.processed.push(condition);
 			if(finals[i]=="do" && token=="if") {
 				this.error='"if... do" is not a statement.';
 				return;
@@ -175,32 +182,22 @@ function CodeBuilder(psc_src){
 			if(finals[i]=="then" && token=="while") {
 				this.error='"while... then" is not a statement.';
 				return;
-			}
+			}			
 			continue;
 		}		
-		else if(token=="else"){				
-			var nif=node.children[node.children.length-1];
-			console.log(nif)
-			if(nif.name!="if") {
-				this.error="Excpected else after if.";
-				return;
-			}
-			node=nif;			
+		else if(token=="else"){		
+			this.processed.push("else");								
 			i++;
 			continue;
 		}
-		else if(i<finals.length-1 && finals[i+1]=='=') {
-			node = new InstructionTree(node);
-			node.name="attr";
+		else if(i<finals.length-1 && finals[i+1]=='=') {			
 			rhand="";
 			i+=2;
 			while(i<finals.length-1 && finals[i]!="") {
 				rhand+=finals[i];
 				i++;
 			}
-			node.args.push(token);
-			node.args.push(rhand);	
-			node=node.parent;
+			this.processed.push(`${token}=${rhand}`)			
 			continue;
 		}
 		else if(finals[i]=="do" && finals[i+1]=="for") {
@@ -216,18 +213,22 @@ function CodeBuilder(psc_src){
 			while(finals[i]!=",") {
 				start+=finals[i]; i++;
 			}
+			i++;
 			while(finals[i]!=",") {
 				stop+=finals[i]; i++;
 			}
+			i++;
 			while(finals[i]!="{") {
 				step+=finals[i]; i++;
-			}
-			node = new InstructionTree(node);
-			node.name="for";
-			node.args.push(it);
-			node.args.push(start);
-			node.args.push(stop);
-			node.args.push(step);
+			}			
+			this.processed.push("for");
+			var lst=[]
+			lst.push(it);
+			lst.push(start);
+			lst.push(stop);
+			lst.push(step);
+			this.processed.push(lst)
+			continue;
 		}
 		else if(token=="") {
 			i++;
@@ -236,30 +237,26 @@ function CodeBuilder(psc_src){
 		i++;
 	}	
 	
-	console.log(this.tree);
+	console.log(this.processed);
 	
 	this.crt=null;	
-	this.interval = null;
+	this.interval = null;	
 	
 	this.execute = function() {
+		if(this.error!="") {
+			return;
+		}
 		var self=this;
 		this.crt=this.tree;	
-		var crt=this.crt;	
-		var stack = [ this.tree ];
+		var crt=this.crt;			
+		var stack = [ this.tree.children[0] ];		
+		
 		this.interval = setInterval(function(){
-			if (stack.length==0) {
-				this.stop();
-				return;
-			}			
-			var crt = stack[stack.length-1];
-			//if(crt.
 			
-			
-			console.log(crt.name);		
 		},1);		
 	}
 	
-	this.stop = function() {
+	this.stop = function() {		
 		clearInterval(this.interval);
 		this.crt=this.tree;
 	}
@@ -275,8 +272,12 @@ function InstructionTree(parent=null) {
 	this.name=null;
 	this.args=[];
 	this.children=[];	
+	this.blockNext=false;
 	
 	this.next=function() {
+		if(this.blockNext) {			
+			return null;
+		}
 		if(this.parent==null) {			
 			return null;
 		}
@@ -287,11 +288,43 @@ function InstructionTree(parent=null) {
 		}		
 		return null;
 	}
+	
+	this.checkCondition=function(symbols) {
+		$__sym=symbols;		
+		if(this.name=="while" || this.name=="for" || this.name=="if") {			
+			console.log(this.condition);
+			return eval(this.condition)==true;
+		}
+		return false;
+	}
+	
+	this.run=function(symbols) {
+		$__sym=symbols;
+		if(this.name=="attr") {
+			eval(`${this.args[0]}=${this.args[1]}`);
+			return;
+		}
+		if(this.name=="read") {
+			for(i in this.args) {				
+				var name=this.args[i];							
+				eval(`${name}=Number(window.prompt(name+"="))`);				
+			}				
+			return;
+		}
+		if(this.name=="write") {
+			for(i in this.args) {				
+				var name=this.args[i];							
+				eval(`__builtin_write(${name})`);				
+			}
+		}		
+	}
 }
 
-
-
-
+function isNumeric(str) {
+  if (typeof str != "string") return false // we only process strings!  
+  return !isNaN(str) && // use type coercion to parse the _entirety_ of the string (`parseFloat` alone does not do this)...
+         !isNaN(parseFloat(str)) // ...and ensure strings of whitespace fail
+}
 
 function __builtin_read_int(msg) {
 	return parseInt(window.prompt(msg,"0"));
