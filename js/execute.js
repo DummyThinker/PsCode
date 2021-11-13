@@ -260,16 +260,22 @@ function CodeBuilder(psc_src){
 			self.symbols[i]=0;
 		}
 		
-		this.interval = setInterval(function(){			
+		this.interval = setInterval(function(){						
 			if(crt!=null){
-				crt=crt.execute(self.symbols);
+				try {
+					crt=crt.execute(self.symbols);
+				}
+				catch(e) {
+					consoleWriteError(e);
+					self.stop();
+					return;
+				}
 			}
 		},1);		
 	}
 	
 	this.stop = function() {		
-		clearInterval(this.interval);
-		this.crt=this.tree;
+		clearInterval(this.interval);		
 	}
 	
 }
@@ -336,7 +342,7 @@ function Instruction(name,args,next=null,condition=null,nextnc=null) {
 			var start = this.args[1];
 			var stop = this.args[2]
 			var step = this.args[3];
-			var dir = eval(`Number(${stop})-Number(${start})`);
+			var dir = eval(`Number(${stop})-Number(${start}`);
 			console.log(stop)
 			console.log(start)
 			console.log(`${stop}-${start}`);
