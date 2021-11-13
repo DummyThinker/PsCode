@@ -313,10 +313,11 @@ function Instruction(name,args,next=null,condition=null,nextnc=null) {
 		var $__sym = symbols;
 		console.log(this.name);
 		if(this.name=="read") {			
-			for(var i in this.args) {
+			for(var i in this.args) {				
 				var name=this.args[i];
-				console.log(`${this.args[i]}=Number(window.prompt(${this.args[i]}+"="))`);
-				eval(`${name}=window.prompt(this.args[i]+"=")`);								
+				var dname = name.slice(8,-2);
+				//console.log(`${this.args[i]}=Number(window.prompt(${this.args[i]}+"="))`);
+				eval(`${name}=window.prompt(dname+"=")`);								
 			}
 			return this.next;
 		}
@@ -342,7 +343,7 @@ function Instruction(name,args,next=null,condition=null,nextnc=null) {
 			var start = this.args[1];
 			var stop = this.args[2]
 			var step = this.args[3];
-			var dir = eval(`Number(${stop})-Number(${start}`);
+			var dir = eval(`Number(${stop})-Number(${start})`);
 			console.log(stop)
 			console.log(start)
 			console.log(`${stop}-${start}`);
