@@ -25,14 +25,14 @@ document.getElementById('CodeInput').addEventListener('keydown', function(e) {
   }
 });
 
-const keywords = ["endif", "enddo", "endwhile", "read", "do&nbsp;for", "else", "if", "while", "do", "write", "until"];
+const keywords = ["endif", "enddo", "endwhile", "read", "do&nbsp;for", "else", "if", "while", "do", "write", "until","then"];
 
 function beautify() {
 	var res=""
 	var lines = source.value.split('\n');
 	for(k in lines) {
 		line = lines[k];
-		line=line.replaceAll(" ","&nbsp;");
+		line=line.replaceAll(" ","&nbsp;").replaceAll(">","&gt;").replaceAll("<","&lt;");
 		
 		tokens = []
 		isquote=false
@@ -106,7 +106,14 @@ function isAlphaNumeric(str) {
 };
 
 
-source.value=`{\n    read n\n    write n\n}`;
+source.value=`{
+    read n
+    do for i=1,n,1 {
+        if i%2==0 {
+            write i
+        }
+    }
+}`;
 beautify();
 
 

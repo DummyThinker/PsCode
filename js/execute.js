@@ -70,7 +70,7 @@ function CodeBuilder(psc_src){
 								}
 							}
 							if(q<word.length) {
-								if('{}%+-*/=<>!,'.includes(word[q])) {									
+								if('{}()%+-*/=<>!,'.includes(word[q])) {									
 									if(token!="") nosptk.push(token);
 									token="";					
 									nosptk.push(word[q]);										
@@ -106,86 +106,128 @@ function CodeBuilder(psc_src){
 		
 		finals.push.apply(finals,nosptk);
 		finals.push("");
-	}
-	console.log(finals);
+	}	
 	
-	// build javascript
-	var js = "function program()";
+	this.finals=finals;	
+		
+	console.log(this.finals);
+	
+	this.tree=new InstructionTree();
+		
+	var node = this.tree;
 	var symbols = [];
 	var i=0;
-	while(i<finals.length){	
-		console.log(js);
+	while(i<finals.length){			
 		var token=finals[i];
-		//console.log(token)
-		if(token=="{" || token=="}") {
-			js+=token;
+		
+		if(token=="{") {						
 			i++;
 			continue;
 		}		
+		else if(token=="}") {
+			node = node.parent;
+			i++;
+			continue;
+		}
 		else if(token=="read") {
+			node = new InstructionTree(node);
+			node.name="read";
 			i++;			
 			if(i<finals.length) {
-				var vr="";
-				if(!symbols.includes(finals[i])) {
-					vr="var ";
-					symbols.push(finals[i]);
-				}
-				js+=vr + `${finals[i]}=__builtin_read_int("${finals[i]}=");`;
+				node.args.push(finals[i]);					
 				i++;				
-				while(i<finals.length && finals[i]==',') {
-					vr="";
-					if(!symbols.includes(finals[i+1])) {
-						vr="var ";
-						symbols.push(finals[i+1]);
-					}
-					js+=vr+`${finals[i+1]}=__builtin_read_int("${finals[i+1]}=");`;				
+				while(i<finals.length && finals[i]==',') {					
+					node.args.push(finals[i+1]);					
 					i+=2;
 				}				
-				js+=""
+				node=node.parent;
 				continue;
 			}			
 		}
 		else if(token=="write") {
+			node = new InstructionTree(node);
+			node.name="write";
 			i++;			
 			if(i<finals.length) {				
-				js+=`__builtin_write(${finals[i]}+" ");`;
+				node.args.push(finals[i]);
 				i++;				
 				while(i<finals.length && finals[i]==',') {					
-					js+=`__builtin_write(${finals[i+1]}+" ");`;			
+					node.args.push(finals[i+1]);
 					i+=2;
-				}								
+				}			
+				node=node.parent;
 				continue;
 			}			
 		}
 		else if(token=="if" || token=="while") {
-			i++;
-			var condition = "";
-			while(i<finals.length && finals[i]!="{") {
-				condition+=finals[i];
+			node = new InstructionTree(node);
+			node.name=token;
+			node.condition="";			
+			i++;			
+			while(i<finals.length && finals[i]!="do" && finals[i]!="then" && finals[i]!="") {
+				node.condition+=finals[i];
 				i++;
+			}			
+			if(finals[i]=="do" && token=="if") {
+				this.error='"if... do" is not a statement.';
+				return;
 			}
-			js+=`${token}(${condition})`;
+			if(finals[i]=="then" && token=="while") {
+				this.error='"while... then" is not a statement.';
+				return;
+			}
 			continue;
 		}		
-		else if(token=="else"){			
-			js+="else ";
+		else if(token=="else"){				
+			var nif=node.children[node.children.length-1];
+			console.log(nif)
+			if(nif.name!="if") {
+				this.error="Excpected else after if.";
+				return;
+			}
+			node=nif;			
 			i++;
 			continue;
 		}
 		else if(i<finals.length-1 && finals[i+1]=='=') {
-			var vr="";
-			if(!symbols.includes(finals[i])) {
-				vr="var ";
-				symbols.push(finals[i]);
-			}			
+			node = new InstructionTree(node);
+			node.name="attr";
 			rhand="";
 			i+=2;
 			while(i<finals.length-1 && finals[i]!="") {
 				rhand+=finals[i];
 				i++;
 			}
-			js+=vr+`${token}=${rhand};`;
+			node.args.push(token);
+			node.args.push(rhand);	
+			node=node.parent;
 			continue;
+		}
+		else if(finals[i]=="do" && finals[i+1]=="for") {
+			var it="";
+			var start="";
+			var stop="";
+			var step="";
+			i+=2;
+			while(finals[i]!='=') {
+				it+=finals[i]; i++;
+			}
+			i++;
+			while(finals[i]!=",") {
+				start+=finals[i]; i++;
+			}
+			while(finals[i]!=",") {
+				stop+=finals[i]; i++;
+			}
+			while(finals[i]!="{") {
+				step+=finals[i]; i++;
+			}
+			node = new InstructionTree(node);
+			node.name="for";
+			node.args.push(it);
+			node.args.push(start);
+			node.args.push(stop);
+			node.args.push(step);
 		}
 		else if(token=="") {
 			i++;
@@ -193,20 +235,77 @@ function CodeBuilder(psc_src){
 		}
 		i++;
 	}	
-	console.log(js);
-	this.js=js;
+	
+	console.log(this.tree);
+	
+	this.crt=null;	
+	this.interval = null;
+	
+	this.execute = function() {
+		var self=this;
+		this.crt=this.tree;	
+		var crt=this.crt;	
+		var stack = [ this.tree ];
+		this.interval = setInterval(function(){
+			if (stack.length==0) {
+				this.stop();
+				return;
+			}			
+			var crt = stack[stack.length-1];
+			//if(crt.
+			
+			
+			console.log(crt.name);		
+		},1);		
+	}
+	
+	this.stop = function() {
+		clearInterval(this.interval);
+		this.crt=this.tree;
+	}
+	
 }
+
+function InstructionTree(parent=null) {	
+	this.parent=parent;
+	if(parent!=null) {
+		parent.children.push(this);
+	}
+	this.condition="";
+	this.name=null;
+	this.args=[];
+	this.children=[];	
+	
+	this.next=function() {
+		if(this.parent==null) {			
+			return null;
+		}
+		var children=this.parent.children;
+		index = children.indexOf(this);
+		if(index >= 0 && index < children.length - 1) {			
+			return  children[index + 1];
+		}		
+		return null;
+	}
+}
+
+
+
+
 
 function __builtin_read_int(msg) {
 	return parseInt(window.prompt(msg,"0"));
 }
 
 function __builtin_write(msg) {
-	consoleWrite(msg);
+	consoleWrite(msg);	
+	
+	document.getElementById('CodeRes').style.display = 'none';
+	document.getElementById('CodeRes').style.display = 'block';
 }
 
 function __builtin_writeln() {
-	consoleWriteLine("");
+	consoleWriteLine("");	
 }
 
 function consoleClear() {
