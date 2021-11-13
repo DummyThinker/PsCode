@@ -239,20 +239,31 @@ function CodeBuilder(psc_src){
 	
 	console.log(this.processed);
 	
+	this.entryPoint=new Instruction("main",[]);	
+	this.entryPoint.innercode=this.processed.slice(1,-1);
+	
+	this.entryPoint.compile();
+	
+	console.log(this.entryPoint);
+	
 	this.crt=null;	
 	this.interval = null;	
 	
 	this.execute = function() {
-		if(this.error!="") {
+		if(this.error!==undefined) {
 			return;
-		}
+		}		
 		var self=this;
-		this.crt=this.tree;	
-		var crt=this.crt;			
-		var stack = [ this.tree.children[0] ];		
+		this.crt=this.entryPoint;
+		var crt=this.crt;	
+		for(var i in self.symbols) {
+			self.symbols[i]=0;
+		}
 		
-		this.interval = setInterval(function(){
-			
+		this.interval = setInterval(function(){			
+			if(crt!=null){
+				crt=crt.execute(self.symbols);
+			}
 		},1);		
 	}
 	
@@ -263,60 +274,234 @@ function CodeBuilder(psc_src){
 	
 }
 
-function InstructionTree(parent=null) {	
-	this.parent=parent;
-	if(parent!=null) {
-		parent.children.push(this);
-	}
-	this.condition="";
-	this.name=null;
-	this.args=[];
-	this.children=[];	
-	this.blockNext=false;
+function Instruction(name,args,next=null,condition=null,nextnc=null) {	
+	this.name=name;
+	this.args=args;
+	this.next=next;
+	this.condition=condition;
+	this.nextnc=nextnc;
+	this.loop = false;
 	
-	this.next=function() {
-		if(this.blockNext) {			
-			return null;
-		}
-		if(this.parent==null) {			
-			return null;
-		}
-		var children=this.parent.children;
-		index = children.indexOf(this);
-		if(index >= 0 && index < children.length - 1) {			
-			return  children[index + 1];
-		}		
-		return null;
-	}
+	this.innercode = []
 	
-	this.checkCondition=function(symbols) {
-		$__sym=symbols;		
-		if(this.name=="while" || this.name=="for" || this.name=="if") {			
-			console.log(this.condition);
-			return eval(this.condition)==true;
-		}
-		return false;
-	}
-	
-	this.run=function(symbols) {
-		$__sym=symbols;
-		if(this.name=="attr") {
-			eval(`${this.args[0]}=${this.args[1]}`);
-			return;
-		}
-		if(this.name=="read") {
-			for(i in this.args) {				
-				var name=this.args[i];							
-				eval(`${name}=Number(window.prompt(name+"="))`);				
-			}				
-			return;
-		}
-		if(this.name=="write") {
-			for(i in this.args) {				
-				var name=this.args[i];							
-				eval(`__builtin_write(${name})`);				
+	this.set_next=function(ins) {
+		console.log(ins.name);
+		if(this.name=="while" || this.name=="for") {			
+			this.loop=true;
+			if(this.isCompiling) {
+				this.next=ins;
+				return this.next;
+			} else {
+				this.nextnc=ins;
+				return this.nextnc;
 			}
-		}		
+		} else {
+			this.next=ins;
+			return this.next;
+		}
+	}
+	
+	this.isCompiling=false;
+	
+	this.execute = function(symbols) {
+		var $__sym = symbols;
+		console.log(this.name);
+		if(this.name=="read") {			
+			for(var i in this.args) {
+				var name=this.args[i];
+				console.log(`${this.args[i]}=Number(window.prompt(${this.args[i]}+"="))`);
+				eval(`${name}=window.prompt(this.args[i]+"=")`);								
+			}
+			return this.next;
+		}
+		if(this.name=="write") {				
+			for(var i in this.args) {
+				var name=this.args[i];
+				consoleWrite(eval(`${name}`));				
+			}
+			return this.next;
+		}
+		if(this.name.startsWith("$__sym")) {			
+			eval(this.name);			
+			return this.next;
+		}
+		if(this.name=="while" || this.name=="if") {
+			//console.log(`${this.condition}`);
+			var c = eval(`${this.condition}`);
+			//console.log("CCCCCCCCCCC ",c);
+			return c ? this.next : this.nextnc;		
+		}
+		if(this.name=="for") {
+			var iter = this.args[0];
+			var start = this.args[1];
+			var stop = this.args[2]
+			var step = this.args[3];
+			var dir = eval(`Number(${stop})-Number(${start})`);
+			console.log(stop)
+			console.log(start)
+			console.log(`${stop}-${start}`);
+			console.log("dir=",dir);
+			
+			function cont() {
+				if(dir>=0) {
+					return eval(`Number(${stop})`)>=eval(`Number(${iter})`)					
+				} else {
+					return eval(`Number(${stop})`)<=eval(`Number(${iter})`)
+				}					
+			}
+			
+			if(!this.inited) {
+				eval(`${iter}=Number(${start})`);				
+				
+				if(!cont()) {
+					return this.nextnc;
+				}
+				
+				this.inited=true;							
+			} else {
+				eval(`${iter}=Number(${iter})+Number(${step})`);
+				if(cont()) {
+					return this.next;
+				} else {
+					this.inited=false;
+					return this.nextnc
+				}
+			}			
+		}
+		return this.next;
+	}
+	
+	this.inited=false;
+	
+	this.compile = function(){		
+		console.log("compiling",this.name);
+		var ins=this;
+		var inc=this.innercode;
+		for(var i=0;i<inc.length;i++) {
+			if(inc[i]=="write" || inc[i]=="read") {
+				var name=inc[i++];
+				var args=inc[i];								
+				ins=ins.set_next(new Instruction(name,args));
+				continue;
+			}			
+			if(inc[i].startsWith("$__sym")) {
+				var name=inc[i];
+				ins=ins.set_next(new Instruction(name,[]));			
+				continue;
+			}
+			if(inc[i]=="for" || inc[i]=="while") {
+				var name=inc[i++];
+				var cond=inc[i++];
+				ins=ins.set_next(new Instruction(name,[]));			
+				if(name=="while"){
+					ins.condition=cond;
+				}	
+				else {
+					ins.args=cond
+				}
+				var inner=[];
+				if(inc[i]=="{") {
+					i++;
+					var pcnt=1;
+					while(i<inc.length && pcnt>0){
+						if(inc[i]=="{") {
+							pcnt++;
+						} else if(inc[i]=="}") {
+							pcnt--;
+						}			
+						if(pcnt>0) {
+							inner.push(inc[i]);
+						}
+						i++;
+					}
+					i--;					
+				}
+				else {
+					/// ERROR 
+				}
+				ins.innercode=inner;
+				//console.log(">>",ins.name);
+				ins.isCompiling=true;
+				var last_cmp = ins.compile();				
+				last_cmp.next = ins;
+				ins.isCompiling=false;
+				continue;
+			}
+			if(inc[i]=="if") {
+				var name=inc[i++];
+				var cond=inc[i++];
+				ins=ins.set_next(new Instruction(name,[]));			
+				ins.condition=cond;
+				var innerif=[];
+				var innerel=[];
+				if(inc[i]=="{") {
+					i++;
+					var pcnt=1;
+					while(i<inc.length && pcnt>0){
+						if(inc[i]=="{") {
+							pcnt++;
+						} else if(inc[i]=="}") {
+							pcnt--;
+						}			
+						if(pcnt>0) {
+							innerif.push(inc[i]);
+						}
+						i++;
+					}
+					if(inc[i]=="else") {
+						i++;
+						if(inc[i]=="{") {
+							i++;
+							var pcnt=1;
+							while(i<inc.length && pcnt>0){
+								if(inc[i]=="{") {
+									pcnt++;
+								} else if(inc[i]=="}") {
+									pcnt--;
+								}			
+								if(pcnt>0) {
+									innerel.push(inc[i]);
+								}
+								i++;
+							}
+						}
+					}
+					else {
+						/// ERROR
+					}
+					i--;					
+				}
+				else {
+					/// ERROR 
+				}
+				//console.log(innerif)
+				//console.log(innerel)
+				
+				var ifc = new Instruction("block",[]);
+				var elc = new Instruction("block",[]);
+				var acc = new Instruction("accumulator",[]);
+				
+				ifc.innercode=innerif;
+				elc.innercode=innerel;
+				
+				ifc.isCompiling=true;
+				var last_if = ifc.compile();				
+				ifc.isCompiling=false;				
+				
+				
+				elc.isCompiling=true;
+				var last_el = elc.compile();			
+				elc.isCompiling=false;				
+				last_el.next = acc;
+				
+				ins.next = ifc;
+				ins.nextnc=elc;
+				
+				ins=ins.set_next(ifc);
+				ins=last_if.set_next(acc);
+			}
+		}
+		return ins;
 	}
 }
 
